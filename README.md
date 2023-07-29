@@ -183,14 +183,99 @@ Response:
 ```
 
 ## NFC specification
+HomeKeys use nearly the same protocol as Digital Car Keys. The specifications for this Digital Key protocol are publicly available (see the links section below). Therefore the protocol isn't described here in detail. Instead, this section will provide an overview how the protocol is used in the context of HomeKeys and which parts are different. For those interested in a more detailed overview and communication examples: [@kormax](https://github.com/kormax/apple-home-key) did also research this topic, including the configuration applet, which is not covered here.
 
-in progress...
+### HomeKey transaction overview
+HomeKeys can use both transaction types described in the Digital Key specification:
+
+* Standard Transaction
+* Fast Transaction
+
+A Standard Transaction can always be performed. A Fast Transaction is possible only after a successful Standard Transaction (because the secret required to verify the cryptogram is shared during a Standard Transaction).
+
+The following picture illustrates the command flow of a Standard Transaction:
+
+<img src="./resources/homekey-transaction.png" width="800" alt="![HomeKey Transaction Overview]">
+
+1. SELECT:
+   * The lock (= NFC reader) selects the HomeKey applet inside the secure element (SE) of the phone.
+   * The phone answers with a list of supported applet versions (more details below).
+2. AUTH 0:
+   * The lock creates an ephemeral secp256r1 key pair and sends the following data to the phone:
+      * Selected applet version
+      * The public key part of the generated secp256r1 key pair
+      * A randomly generated transaction identifier
+      * The **Reader Identifier**, which is used in place of the Vehicle Identifier from the Digital Key specification
+   * The phone also creates an ephemeral secp256r1 key pair and sends its public key to the lock.
+3. AUTH 1:
+   * The lock creates a signature over the following data and sends it to the phone:
+      * The Reader Identifier
+      * The X coordinate of the phone's ephemeral public key
+      * The X coordinate of the lock's ephemeral public key
+      * The (randomly generated) transaction identifier
+      * A fixed value
+   * The phone checks the signature and sends the following data to the lock in encrypted form:
+      * The identifier of the Device Credential
+      * A signature over the following data:
+         * The Reader Identifier
+         * The X coordinate of the phone's ephemeral public key
+         * The X coordinate of the lock's ephemeral public key
+         * The (randomly generated) transaction identifier
+         * Another fixed value
+4. CONTROL FLOW:
+   * The lock tells the phone if the transaction was successful.
+   * The phone either displays a checkmark or an error.
+
+Between steps **2** and **3** the encryption keys are derived via a key agreement protocol and shared info.
+
+After step **3**, the lock decrypts the message, checks if it has a matching Device Credential and then verifies the signature. If the signature is correct, the phone is authenticated and the transaction succeeds.
+
+### Enhanced Contactless Polling (ECP)
+
+Enhanced Contactless Polling is a proprietary extension for the standard ISO 14443 polling sequence. It's implemented inside the NFC reader (in this case the smart lock) in order to tell the phone which digital credential or pass it has to select before the communication starts. A very detailed research on this topic has been done by [@kormax](https://github.com/kormax/apple-enhanced-contactless-polling).
+
+In the case of HomeKeys, the reader sends the following ECP frame between regular ISO 14443 request/wakeup frames:
+
+```
+6a 02 cb 02 04 021100 <8 byte Reader Identifier> <CRC-16>
+```
+
+For example, if the Reader Identifier is "94625fd2c32cf3c2", the ECP sequence would be:
+
+```
+6a 02 cb 02 04 021100 94625fd2c32cf3c2 dd38
+```
+
+### Application Identifier (AID)
+
+The HomeKey applet can be selected using the following ISO 7816 application identifier:
+
+```
+a00000085801010100000001
+```
+
+### Applet versions
+
+* Version 1.0 (0x0100):
+   * Uses the **Reader Identifier** (8 bytes, see HomeKit section for details) in place of the "Vehicle Identifier"
+   * <span style="color: green;">No further changes, transaction follows the Digital Key specification for applet version 1.0</span>
+* Version 2.0 (0x0200):
+   * Uses a combined value (16 bytes) in place of the "Vehicle Identifier", which is a concatenation of the following data:
+      * The **Reader Identifier** (8 bytes)
+      * An unique lock identifier (8 bytes) *(probably generated during lock setup)*
+   * <span style="color: red;">Uses a modified/different key derivation method</span>
+
+So currently version 1.0 can be used without problems, while version 2.0 requires further research (in progress...).
 
 ## Useful links and documents
-* https://patents.google.com/patent/EP3748900A1/
-* https://github.com/homebridge/HAP-NodeJS
-* https://github.com/KhaosT/HAP-NodeJS/commit/80cdb1535f5bee874cc06657ef283ee91f258815
 * https://github.com/kormax/apple-home-key
+* https://github.com/kormax/apple-enhanced-contactless-polling
+* https://github.com/KhaosT/HAP-NodeJS/commit/80cdb1535f5bee874cc06657ef283ee91f258815
+* https://github.com/homebridge/HAP-NodeJS
+* https://github.com/RfidResearchGroup/proxmark3
+* https://carconnectivity.org/digital-key/
+* https://patents.google.com/patent/EP3748900A1/
+* https://developer.apple.com/videos/play/wwdc2020/10006/
 * https://developer.apple.com/bug-reporting/profiles-and-logs/
 * https://developer.apple.com/documentation/
 * HomeKit Accessory Protocol Specification Non-Commercial Version R2
