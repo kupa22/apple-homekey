@@ -215,7 +215,7 @@ The following picture illustrates the command flow of a Standard Transaction:
       * The (randomly generated) transaction identifier
       * A fixed value
    * The phone checks the signature and sends the following data to the lock in encrypted form:
-      * The identifier of the Device Credential
+      * The identifier of the Device Credential (see information below how to calculate)
       * A signature over the following data:
          * The Reader Identifier
          * The X coordinate of the phone's ephemeral public key
@@ -229,6 +229,11 @@ The following picture illustrates the command flow of a Standard Transaction:
 Between steps **2** and **3** the encryption keys are derived via a key agreement protocol and shared info.
 
 After step **3**, the lock decrypts the message, checks if it has a matching Device Credential and then verifies the signature. If the signature is correct, the phone is authenticated and the transaction succeeds.
+
+This is how the identifier for the Device Credential is calculated:
+```
+SHA1( concatenate( 04, deviceCredentialPublicKey ) ) --> first 6 Bytes
+```
 
 ### Enhanced Contactless Polling (ECP)
 
@@ -258,14 +263,39 @@ a00000085801010100000001
 
 * Version 1.0 (0x0100):
    * Uses the **Reader Identifier** (8 bytes, see HomeKit section for details) in place of the "Vehicle Identifier"
-   * <span style="color: green;">No further changes, transaction follows the Digital Key specification for applet version 1.0</span>
+   * No further changes, transaction follows the Digital Key specification for applet version 1.0
 * Version 2.0 (0x0200):
    * Uses a combined value (16 bytes) in place of the "Vehicle Identifier", which is a concatenation of the following data:
-      * The **Reader Identifier** (8 bytes)
+      * The original **Reader Identifier** (8 bytes)
       * An unique lock identifier (8 bytes) *(probably generated during lock setup)*
-   * <span style="color: red;">Uses a modified/different key derivation method</span>
+   * Uses a modified/different key derivation method --> see the section below for more details
 
-So currently version 1.0 can be used without problems, while version 2.0 requires further research (in progress...).
+So currently version 1.0 can be used without problems, while version 2.0 ~~requires further research~~ --> see below
+
+### Key derivation and cryptogram verification for applet version 2.0
+
+For a **Standard Transaction**, the following data is appended to the shared info for (session and persistent) key derivation:
+
+* List of supported Digital Key applet versions
+
+For example, if the phone reports to support applet versions 2.0 and 1.0, the following data is appended to the shared info:
+```
+(...) 5C 04 02000100
+```
+
+For a **Fast Transaction**, the cryptogram calculation was removed. Instead, the first 16 bytes of the key derivation function output is used as the cryptogram. For this purpose, the shared info for the KDF has been modified. It now contains the following data:
+
+* The X coordinate of the Reader Public Key
+* A fixed value
+* Concatenation of Reader Identifier and the unique lock identifier
+* The X coordinate of the Device Credential Public Key
+* Interface Byte
+* List of supported applet versions, prepended with TLV tag and length bytes (as in the Standard Transaction)
+* Selected applet version, prepended with TLV tag and length bytes
+* The X coordinate of the lock's ephemeral public key
+* The transaction identifier
+* Flag
+* The X coordinate of the phone's ephemeral public key
 
 ## Useful links and documents
 * https://github.com/kormax/apple-home-key
