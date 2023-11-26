@@ -2,6 +2,9 @@
 
 <img src="./resources/homekey-demo.gif" height="200" alt="![HomeKey Demo]">
 
+> [!TIP]
+> You can find a POC implementation showcasing HomeKey functionality [HERE](https://github.com/kormax/apple-home-key-reader).
+
 This documentation is intended only for studying purposes. Most of the information provided here is based on reverse engineering, guessing and testing (trial-and-error). So the documentation may be inaccurate or incomplete.
 
 ## Overview
@@ -302,6 +305,7 @@ For example, if the phone reports to support applet versions 2.0 and 1.0, the fo
 * The X coordinate of the phone's ephemeral public key
 
 ## Useful links and documents
+* https://github.com/kormax/apple-home-key-reader
 * https://github.com/kormax/apple-home-key
 * https://github.com/kormax/apple-enhanced-contactless-polling
 * https://github.com/KhaosT/HAP-NodeJS/commit/80cdb1535f5bee874cc06657ef283ee91f258815
