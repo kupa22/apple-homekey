@@ -1,6 +1,8 @@
 # Apple HomeKey
 
-Warning: This documentation is intended only for studying purposes. Most of the information provided here is based on reverse engineering, guessing and testing (trial-and-error). So the documentation may be inaccurate or incomplete.
+<img src="./resources/homekey-demo.gif" height="200" alt="![HomeKey Demo]">
+
+This documentation is intended only for studying purposes. Most of the information provided here is based on reverse engineering, guessing and testing (trial-and-error). So the documentation may be inaccurate or incomplete.
 
 ## Overview
 HomeKey is a proprietary technology which allows to unlock a compatible smart lock by tapping it with a mobile device (phone or watch). Although the NFC lock is setup like a regular lock via HomeKit, the data exchange while tapping is based on NFC. For this purpose a digital key is automatically generated and stored in the Wallet app.
@@ -16,17 +18,17 @@ So HomeKeys use two technologies:
 ## How it works
 When a NFC capable smart lock is added via HomeKit, the phone generates two things:
 
-* A secp256r1 key pair, which is the **Reader Key**.
-* Another secp256r1 key pair, which is the **Device Credential**.
+* The **Reader Key** (a secp256r1 key pair)
+* The **Device Credential** (another secp256r1 key pair)
 
-The private part of the **Reader Key** is sent to the smart lock and stored there. Its purpose is to authenticate the lock againts the phone during a NFC transaction. Only one Reader Key exists per home.
+The private part of the **Reader Key** is sent to the smart lock and stored there. Its purpose is to authenticate the lock againts the phone during a NFC transaction. Only one Reader Key exists for each home.
 
-The public part of the **Device Credential** is also sent to the smart lock and stored there. The Device Credential is unique per device (phone or watch) and used to identify and authenticate the device at the lock during a NFC transaction. Each device invited to the home generates its own Device Credential which is then sent to the lock. A lock can normally store multiple Device Credentials.
+The public part of the **Device Credential** is also sent to the smart lock and stored there. The Device Credential is unique per device (phone or watch) and used to identify and authenticate the device at the lock during a NFC transaction. Each device invited to the home generates its own Device Credential which is then sent to the lock. A lock can store multiple Device Credentials.
 
 <img src="./resources/homekey-keys.png" width="800" alt="![HomeKey Key Overview]">
 
 ## HomeKit specification
-A HomeKey compatible lock has the same services and characteristics as a normal lock, but exposes additional services and characteristics. Only the latter are described here.
+A HomeKey compatible lock utilizes the same services and characteristics as a normal HomeKit lock, but exposes additional services and characteristics. Only the HomeKey specific ones are described here.
 
 ---
 
@@ -58,7 +60,7 @@ This characteristic is optional and allows to specify the color of the virtual H
 TLV8 encoding:
 | Description                 | Type        | Length       | Value                                                                                                                                                                                                    |
 | --------------------------- | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Wallet Key Color            | 1           | 4            | One of the following values (hexadecimal):<br>`CED5DA00: Tan (default)`<br>`AAD6EC00: Gold`<br>`E3E3E300: Silver`<br>`00000000: Black`                                                                   |
+| Wallet Key Color            | 1           | 4            | One of the following values (hexadecimal):<br>`0xCED5DA00: Tan (default)`<br>`0xAAD6EC00: Gold`<br>`0xE3E3E300: Silver`<br>`0x00000000: Black`                                                                   |
 
 Example response:
 `0104CED5DA00`
@@ -84,7 +86,7 @@ Hint: The Issuer Key seems to be identical for all devices on the same iCloud ac
 ### Characteristic "NFC Access Control Point"
 This characteristic is used to provision the Reader Key and the Device Credentials in the lock.
 
-The phone always sends a write request containing a TLV8 object to the lock - and the lock then answers to that request with a TLV8 response.
+The phone always sends a write request containing a TLV8 object to the lock - and the lock then answers that with a TLV8 response.
 
 TLV8 encoding:
 | Description                                               | Type        | Length       | Value                                                                                                                                                                                                    | Presence                  |
@@ -127,9 +129,9 @@ Sub-TLV8 encoding of "Reader Key Response":
 
 Calculation of the Identifier for Reader Private Key ("Reader Identifier"):
 ```
-SHA256( concatenate( 6B65792D6964656E746966696572, readerPrivateKey ) ) --> first 8 Bytes is the Reader Identifier
+SHA256( concatenate( 0x6B65792D6964656E746966696572, readerPrivateKey ) ) --> first 8 Bytes is the Reader Identifier
 ```
-"6B65792D6964656E746966696572" is hexadecimal binary encoded ("key-identifier" in ASCII)
+"0x6B65792D6964656E746966696572" is the hexadecimal representation (as byte array) for "key-identifier" encoded in ASCII.
 
 Example request "get configured reader key" (no reader key configured):
 ```
@@ -183,7 +185,7 @@ Response:
 ```
 
 ## NFC specification
-HomeKeys use nearly the same protocol as Digital Car Keys. The specifications for this Digital Key protocol are publicly available (see the links section below). Therefore the protocol isn't described here in detail. Instead, this section will provide an overview how the protocol is used in the context of HomeKeys and which parts are different. For those interested in a more detailed overview and communication examples: [@kormax](https://github.com/kormax/apple-home-key) did also research this topic, including the configuration applet, which is not covered here.
+HomeKeys use nearly the same protocol as Digital Car Keys. **The specifications for this Digital Key protocol are publicly available** (see the links section below). Therefore the protocol isn't described here in detail. Instead, this section will provide an overview how the protocol is used in the context of HomeKeys and which parts are different. For those interested in a more detailed overview and communication examples: [@kormax](https://github.com/kormax/apple-home-key) did also research this topic, including the attestation exchange mechanism, which is not covered here.
 
 ### HomeKey transaction overview
 HomeKeys can use both transaction types described in the Digital Key specification:
@@ -232,8 +234,10 @@ After step **3**, the lock decrypts the message, checks if it has a matching Dev
 
 This is how the identifier for the Device Credential is calculated:
 ```
-SHA1( concatenate( 04, deviceCredentialPublicKey ) ) --> first 6 Bytes
+SHA1( concatenate( 0x04, deviceCredentialPublicKey ) ) --> first 6 Bytes
 ```
+
+The uncompressed format of the secp256r1 public key is used here, thus the "0x04" prefix.
 
 ### Enhanced Contactless Polling (ECP)
 
@@ -274,7 +278,7 @@ So currently version 1.0 can be used without problems, while version 2.0 ~~requi
 
 ### Key derivation and cryptogram verification for applet version 2.0
 
-For a **Standard Transaction**, the following data is appended to the shared info for (session and persistent) key derivation:
+**Standard Transaction**: The following data is appended to the shared info for (session and persistent) key derivation:
 
 * List of supported Digital Key applet versions
 
@@ -283,7 +287,7 @@ For example, if the phone reports to support applet versions 2.0 and 1.0, the fo
 (...) 5C 04 02000100
 ```
 
-For a **Fast Transaction**, the cryptogram calculation was removed. Instead, the first 16 bytes of the key derivation function output is used as the cryptogram. For this purpose, the shared info for the KDF has been modified. It now contains the following data:
+**Fast Transaction**: The cryptogram calculation was removed. Instead, the first 16 bytes of the key derivation function output is used as the cryptogram. For this purpose, the shared info for the KDF has been modified. It now contains the following data (in exactly this order):
 
 * The X coordinate of the Reader Public Key
 * A fixed value
