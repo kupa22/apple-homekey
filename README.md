@@ -1,6 +1,6 @@
 # Apple HomeKey
 
-<img src="./resources/homekey-demo.gif" height="200" alt="![HomeKey Demo]">
+<img src="./resources/homekey-demo.gif" alt="![HomeKey Demo]" style="width: 200px; height: 200px;">
 
 > [!TIP]
 > You can find a POC implementation showcasing HomeKey functionality [HERE](https://github.com/kormax/apple-home-key-reader).
